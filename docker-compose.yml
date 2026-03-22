@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: btc_tracker
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    container_name: bitcoiner_lindo_db
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    restart: always
+    container_name: bitcoiner_lindo_app
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=btc_tracker
+      - PORT=3000
+    depends_on:
+      - db
+
+volumes:
+  pgdata:

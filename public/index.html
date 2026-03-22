@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BitcoinerLindo - Dashboard Trader</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-color: #1e293b;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --border-color: #334155;
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.4);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-image: 
+                radial-gradient(ellipse at top, #1e293b 0%, var(--bg-color) 70%),
+                radial-gradient(ellipse at bottom right, rgba(99, 102, 241, 0.15) 0%, transparent 50%);
+            background-attachment: fixed;
+        }
+        header {
+            padding: 2rem 4rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .header-title { display: flex; align-items: center; gap: 12px; }
+        .header-title h1 { font-weight: 600; font-size: 1.5rem; color: white; }
+        .btc-icon {
+            width: 32px; height: 32px; background: #f7931a; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-weight: bold; color: white;
+            box-shadow: 0 0 15px rgba(247, 147, 26, 0.4);
+        }
+        .controls {
+            display: flex; align-items: center; gap: 1rem;
+            background: rgba(15, 23, 42, 0.6); padding: 8px 16px;
+            border-radius: 99px; border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .controls label { font-size: 0.875rem; color: var(--text-dim); }
+        .controls input {
+            background: transparent; border: none; color: var(--text-main);
+            width: 45px; text-align: center; border-bottom: 1px dashed var(--text-dim); outline: none;
+        }
+        main {
+            padding: 2rem 2rem; flex-grow: 1; display: flex; flex-direction: column;
+            max-width: 1600px; margin: 0 auto; width: 100%;
+        }
+        .status-bar { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+        .table-container {
+            background: rgba(30, 41, 59, 0.5); border-radius: 16px; border: 1px solid var(--border-color);
+            backdrop-filter: blur(16px); overflow-x: auto; width: 100%;
+        }
+        table { width: 100%; border-collapse: collapse; text-align: left; min-width: 800px; }
+        thead { background: rgba(15, 23, 42, 0.8); }
+        th, td { padding: 10px 12px; }
+        th { font-weight: 500; font-size: 0.7rem; text-transform: uppercase; color: var(--text-dim); border-bottom: 1px solid var(--border-color); }
+        td { font-size: 0.85rem; border-bottom: 1px solid rgba(51, 65, 85, 0.5); font-weight: 500; }
+        tr:hover td { background-color: rgba(51, 65, 85, 0.3); }
+        .text-green { color: var(--accent-green); }
+        .text-red { color: var(--accent-red); }
+        .time-dim { color: var(--text-dim); font-size: 0.8rem; font-weight: 400; }
+        .text-dim { color: var(--text-dim); }
+        
+        .pulse-dot {
+            height: 8px; width: 8px; background-color: var(--accent-green); border-radius: 50%;
+            display: inline-block; margin-right: 8px; box-shadow: 0 0 8px var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* Modals and Overlays */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 100; backdrop-filter: blur(8px);
+            display: flex; justify-content: center; align-items: center;
+        }
+        .modal-box {
+            background: var(--panel-color); padding: 2rem; border-radius: 12px;
+            width: 400px; border: 1px solid var(--border-color); box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        .input-group { margin-bottom: 1rem; }
+        .input-group label { display: block; font-size: 0.85rem; color: var(--text-dim); margin-bottom: 6px; }
+        .input-group input { 
+            width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);
+            background: rgba(15,23,42,0.8); color: white; outline: none; font-family: monospace;
+        }
+        .btn {
+            background: var(--primary); color: white; border: none; padding: 8px 16px;
+            border-radius: 6px; cursor: pointer; font-weight: 500; font-family: 'Inter', sans-serif;
+        }
+        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-dim); }
+        .btn-danger { background: transparent; border: 1px solid var(--accent-red); color: var(--accent-red); }
+        .alert { color: var(--accent-red); font-size: 0.85rem; margin-top: 10px; text-align: center; }
+
+        /* Esconder main até logar */
+        #app-content { display: none; width: 100%; flex-direction: column; flex-grow: 1; }
+    </style>
+</head>
+<body>
+
+    <!-- OVERLAY DE LOGIN -->
+    <div id="login-overlay" class="overlay">
+        <div class="modal-box">
+            <div class="header-title" style="justify-content: center; margin-bottom: 2rem;">
+                <div class="btc-icon">₿</div> <h2>Tracker Premium</h2>
+            </div>
+            <div class="input-group">
+                <label>E-mail</label>
+                <input type="email" id="auth-user" placeholder="Seu e-mail de acesso">
+            </div>
+            <div class="input-group">
+                <label>Senha</label>
+                <input type="password" id="auth-pass" placeholder="Defina ou digite sua senha secreta">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 1.5rem;">
+                <button class="btn btn-outline" id="btn-register" style="flex: 1;">Criar Conta</button>
+                <button class="btn" id="btn-login" style="flex: 1; box-shadow: 0 0 10px var(--primary-glow);">Entrar</button>
+            </div>
+            <p id="auth-msg" class="alert"></p>
+        </div>
+    </div>
+
+    <!-- OVERLAY DE VERIFICAÇÃO DE SENHA (ANTES DAS CHAVES) -->
+    <div id="verify-overlay" class="overlay" style="display: none;">
+        <div class="modal-box">
+            <h3 style="margin-bottom: 1.5rem;">Acesso Restrito</h3>
+            <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 1rem;">Por segurança do banco de dados, digite sua senha novamente para visualizar ou alterar as chaves da API.</p>
+            <div class="input-group">
+                <label>Sua Senha</label>
+                <input type="password" id="verify-pass" placeholder="A mesma senha utilizada no Login">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn btn-outline" onclick="closeVerify()">Cancelar</button>
+                <button class="btn" id="btn-confirm-verify">Verificar e Acessar</button>
+            </div>
+            <p id="verify-msg" class="alert"></p>
+        </div>
+    </div>
+
+    <!-- OVERLAY DE ADMIN -->
+    <div id="admin-overlay" class="overlay" style="display: none;">
+        <div class="modal-box" style="width: 600px; max-width: 90vw;">
+            <h3 style="margin-bottom: 1.5rem;">Painel de Administrador</h3>
+            <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 1rem;">Gerencie o acesso do sistema. <b>Atenção:</b> Deletar um usuário remove permanentemente a conta, incluindo suas Chaves API.</p>
+            
+            <div style="background: rgba(15,23,42,0.5); border-radius: 8px; border: 1px solid var(--border-color); overflow-y: auto; max-height: 400px; margin-bottom: 1.5rem;">
+                <table style="min-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>E-mail</th>
+                            <th>Cargo</th>
+                            <th style="text-align: right;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-users-list">
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn btn-outline" onclick="closeAdmin()">Fechar Painel</button>
+            </div>
+            <p id="admin-msg" class="alert"></p>
+        </div>
+    </div>
+
+    <!-- OVERLAY DE CHAVES DA API -->
+    <div id="keys-overlay" class="overlay" style="display: none;">
+        <div class="modal-box">
+            <h3 style="margin-bottom: 1.5rem;">Chaves CoinEx do Usuário</h3>
+            <div class="input-group">
+                <label>Access ID</label>
+                <input type="text" id="key-access" placeholder="Insira sua Access ID">
+            </div>
+            <div class="input-group">
+                <label>Secret Key</label>
+                <input type="password" id="key-secret" placeholder="Insira sua Secret Key">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 1.5rem;">
+                <button class="btn btn-danger" id="btn-delete-keys" style="display: none;">Deletar do DB</button>
+                <button class="btn btn-outline" onclick="closeKeys()">Fechar Cofre</button>
+                <button class="btn" id="btn-save-keys">Criptografar no BD (30 dias)</button>
+            </div>
+            <p id="keys-msg" class="alert"></p>
+        </div>
+    </div>
+
+    <!-- OVERLAY DO TELEGRAM -->
+    <div id="telegram-overlay" class="overlay" style="display: none;">
+        <div class="modal-box">
+            <h3 style="margin-bottom: 1.5rem;">Cérebro Autônomo (Telegram)</h3>
+            <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 1rem;">Receba notificações de Compra/Venda direto no seu celular com o site desligado.<br><br>1. Gere um Bot no Telegram enviando `/newbot` pro <b>@BotFather</b> e copie o Token.<br>2. Fale com <b>@userinfobot</b> e copie seu ID Numérico Único.</p>
+            <div class="input-group">
+                <label>Seu Bot Token Segredo</label>
+                <input type="password" id="tg-token" placeholder="Ex: 56987:AAHfkL..._k9H">
+            </div>
+            <div class="input-group">
+                <label>Seu User ID Exato</label>
+                <input type="text" id="tg-chatid" placeholder="Ex: 12345678">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 1.5rem;">
+                <button class="btn btn-danger" id="btn-delete-tg" style="display: none;">Desconectar</button>
+                <button class="btn btn-outline" onclick="closeTelegram()">Vou fazer depois</button>
+                <button class="btn" id="btn-save-tg">🔌 Ativar Robô Notificador</button>
+            </div>
+            <p id="tg-msg" class="alert"></p>
+        </div>
+    </div>
+
+    <!-- PAINEL PRINCIPAL -->
+    <div id="app-content">
+        <header>
+            <div class="header-title">
+                <div class="btc-icon">₿</div>
+                <h1>Bitcoin Tracker</h1>
+                <span id="user-greeting" style="font-size:0.9rem; color: var(--accent-green); margin-left: 20px;"></span>
+            </div>
+            <div class="controls">
+                <button id="btn-admin-panel" class="btn" onclick="openAdmin()" style="display:none; padding: 6px 12px; font-size: 0.8rem; background: var(--accent-red); box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);">👑 Admin</button>
+                <button class="btn" onclick="openTelegram()" style="padding: 6px 12px; font-size: 0.8rem; background: #0088cc; box-shadow: 0 0 10px rgba(0, 136, 204, 0.4);">💬 Robô Telegram</button>
+                <button class="btn" onclick="openVerify()" style="padding: 6px 12px; font-size: 0.8rem; box-shadow: 0 0 10px var(--primary-glow);">🔑 Chaves API Seguras</button>
+                <button class="btn btn-outline" onclick="logout()" style="padding: 6px 12px; font-size: 0.8rem;">Sair</button>
+                <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 10px;"></div>
+                <label for="interval-input">Atualizar a cada</label>
+                <input type="number" id="interval-input" value="5" min="0.1" step="0.5">
+                <label for="interval-input">minutos</label>
+            </div>
+        </header>
+
+        <main>
+            <div class="status-bar">
+                <h2>Cotações Diárias Globais (Abertura e Fechamento BTC/USDT)</h2>
+                <div style="font-size: 0.875rem; color: var(--text-dim); display: flex; align-items: center;">
+                    <span class="pulse-dot"></span> Atualizado em: <span id="last-update-time" style="margin-left:5px;">--:--:--</span>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data e Hora (Última)</th>
+                            <th>Abertura</th>
+                            <th>Fechamento</th>
+                            <th>Máximo</th>
+                            <th>Mínimo</th>
+                            <th>Volume Negociado</th>
+                            <th>Banda Sup. (BB)</th>
+                            <th>Banda Central (SMA)</th>
+                            <th>Banda Inf. (BB)</th>
+                            <th>Ação de Trade</th>
+                        </tr>
+                    </thead>
+                    <tbody id="crypto-table-body">
+                        <tr><td colspan="10" style="text-align:center; padding: 40px; color: var(--text-dim);">Conectando com Banco de Dados e CoinEx...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // AUTH LOGIC
+        let token = localStorage.getItem('btcTrackerToken');
+        let username = localStorage.getItem('btcTrackerUser');
+        let isAdmin = localStorage.getItem('btcTrackerIsAdmin') === 'true';
+
+        function checkAuth() {
+            if (token) {
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('app-content').style.display = 'flex';
+                document.getElementById('user-greeting').innerText = `👤 Bem-vindo(a), ${username}`;
+                document.getElementById('btn-admin-panel').style.display = isAdmin ? 'inline-block' : 'none';
+                fetchBitcoinData();
+                setupInterval();
+            } else {
+                document.getElementById('login-overlay').style.display = 'flex';
+                document.getElementById('app-content').style.display = 'none';
+                if(intervalId) clearInterval(intervalId);
+            }
+        }
+
+        async function doAuth(action) {
+            const user = document.getElementById('auth-user').value.trim();
+            const pass = document.getElementById('auth-pass').value.trim();
+            const msg = document.getElementById('auth-msg');
+            msg.innerText = 'Autenticando no Servidor...';
+            msg.style.color = 'var(--text-dim)';
+
+            try {
+                const res = await fetch(`/api/auth/${action}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: user, password: pass})
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    if (action === 'register') {
+                        msg.innerText = 'Conta criada no Postgres! Agora clique em Entrar.';
+                        msg.style.color = 'var(--accent-green)';
+                    } else {
+                        isAdmin = data.is_admin;
+                        token = data.token;
+                        username = data.username;
+                        localStorage.setItem('btcTrackerToken', token);
+                        localStorage.setItem('btcTrackerUser', username);
+                        localStorage.setItem('btcTrackerIsAdmin', isAdmin);
+                        document.getElementById('auth-pass').value = '';
+                        checkAuth();
+                    }
+                } else {
+                    msg.innerText = data.error || 'Erro.';
+                    msg.style.color = 'var(--accent-red)';
+                }
+            } catch (e) {
+                msg.innerText = 'Erro de conexão com o banco.';
+                msg.style.color = 'var(--accent-red)';
+            }
+        }
+
+        document.getElementById('btn-login').addEventListener('click', () => doAuth('login'));
+        document.getElementById('btn-register').addEventListener('click', () => doAuth('register'));
+        
+        function logout() {
+            token = null;
+            username = null;
+            localStorage.removeItem('btcTrackerToken');
+            localStorage.removeItem('btcTrackerUser');
+            localStorage.removeItem('btcTrackerIsAdmin');
+            isAdmin = false;
+            document.getElementById('auth-user').value = '';
+            document.getElementById('auth-pass').value = '';
+            document.getElementById('auth-msg').innerText = '';
+            checkAuth();
+        }
+
+        // VERIFY PASSWORD FOR KEYS
+        function openVerify() {
+            document.getElementById('verify-msg').innerText = '';
+            document.getElementById('verify-pass').value = '';
+            document.getElementById('verify-overlay').style.display = 'flex';
+        }
+        function closeVerify() {
+            document.getElementById('verify-overlay').style.display = 'none';
+        }
+        
+        document.getElementById('btn-confirm-verify').addEventListener('click', async () => {
+            const pass = document.getElementById('verify-pass').value;
+            const msg = document.getElementById('verify-msg');
+            try {
+                const res = await fetch('/api/auth/verify-password', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+                    body: JSON.stringify({password: pass})
+                });
+                const data = await res.json();
+                if (res.ok && data.valid) {
+                    closeVerify();
+                    openKeys();
+                } else {
+                    msg.innerText = data.error || 'Autenticação reprovada: Senha incorreta.';
+                    msg.style.color = 'var(--accent-red)';
+                }
+            } catch(e) {
+                msg.innerText = 'Erro de rede.';
+            }
+        });
+
+        // KEYS LOGIC
+        async function openKeys() {
+            document.getElementById('keys-overlay').style.display = 'flex';
+            document.getElementById('key-access').value = '';
+            document.getElementById('key-secret').value = '';
+            document.getElementById('keys-msg').innerText = 'Carregando chaves criptografadas do servidor seguro...';
+            document.getElementById('keys-msg').style.color = 'var(--text-dim)';
+            document.getElementById('btn-delete-keys').style.display = 'none';
+
+            try {
+                const res = await fetch('/api/keys', { headers: {'Authorization': `Bearer ${token}`}});
+                if (res.status === 401 || res.status === 403) return logout();
+                const data = await res.json();
+
+                if (data.hasKeys) {
+                    document.getElementById('key-access').value = data.maskedAccess;
+                    document.getElementById('key-secret').value = data.maskedSecret;
+                    document.getElementById('btn-delete-keys').style.display = 'block';
+                    document.getElementById('keys-msg').innerText = 'Chaves da sua conta localizadas e recuperadas do cofre do banco.';
+                    document.getElementById('keys-msg').style.color = 'var(--accent-green)';
+                } else if (data.expired) {
+                    document.getElementById('keys-msg').innerText = 'Suas chaves expiraram (30 dias) e sofreram expurgo defensivo.';
+                    document.getElementById('keys-msg').style.color = 'var(--accent-red)';
+                } else {
+                    document.getElementById('keys-msg').innerText = 'Você não possui chaves atreladas a esta conta no momento.';
+                }
+            } catch(e) {
+                document.getElementById('keys-msg').innerText = 'Erro ao buscar chaves no servidor.';
+                document.getElementById('keys-msg').style.color = 'var(--accent-red)';
+            }
+        }
+
+        function closeKeys() {
+            document.getElementById('keys-overlay').style.display = 'none';
+        }
+
+        async function saveKeys(action) {
+            const acc = document.getElementById('key-access').value.trim();
+            const sec = document.getElementById('key-secret').value.trim();
+            const msg = document.getElementById('keys-msg');
+            
+            if (action !== 'delete' && (acc.includes('***') || acc === '' || sec === '')) {
+                return; // Nothing new to save
+            }
+
+            try {
+                msg.style.color = 'var(--text-dim)';
+                msg.innerText = 'Processando encriptação AES no lado servidor...';
+                
+                const res = await fetch('/api/keys', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+                    body: JSON.stringify({ action, accessId: acc, secretKey: sec })
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    msg.innerText = data.message;
+                    msg.style.color = 'var(--accent-green)';
+                    if (action === 'delete') {
+                        document.getElementById('key-access').value = '';
+                        document.getElementById('key-secret').value = '';
+                        document.getElementById('btn-delete-keys').style.display = 'none';
+                    }
+                    setTimeout(closeKeys, 2000);
+                } else {
+                    msg.innerText = 'Falha ao salvar no SGDB.';
+                    msg.style.color = 'var(--accent-red)';
+                }
+            } catch(e) {
+                msg.innerText = 'Erro de requisição ao Backend.';
+            }
+        }
+
+        document.getElementById('btn-save-keys').addEventListener('click', () => saveKeys('save'));
+        document.getElementById('btn-delete-keys').addEventListener('click', () => saveKeys('delete'));
+
+
+        // ADMIN PANELS LOGIC
+        function openAdmin() {
+            document.getElementById('admin-msg').innerText = '';
+            document.getElementById('admin-overlay').style.display = 'flex';
+            loadAdminUsers();
+        }
+        function closeAdmin() {
+            document.getElementById('admin-overlay').style.display = 'none';
+        }
+        
+        async function loadAdminUsers() {
+            const tbody = document.getElementById('admin-users-list');
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-dim);padding:20px;">Carregando tabela de usuários...</td></tr>';
+            try {
+                const res = await fetch('/api/admin/users', { headers: {'Authorization': `Bearer ${token}`} });
+                const users = await res.json();
+                tbody.innerHTML = '';
+                users.forEach(u => {
+                    const tr = document.createElement('tr');
+                    
+                    let roleBadge = u.is_admin 
+                        ? '<span style="background:var(--accent-red); color:white; padding: 2px 8px; border-radius:12px; font-size:0.7rem;">Admin</span>' 
+                        : '<span style="background:var(--border-color); color:var(--text-main); padding: 2px 8px; border-radius:12px; font-size:0.7rem;">Usuário</span>';
+                    
+                    let actionButtons = '';
+                    if (!u.is_admin) {
+                        actionButtons += `<button onclick="adminAction('elevate', ${u.id})" style="background:transparent; border:1px solid var(--accent-green); color:var(--accent-green); border-radius:4px; padding:4px 8px; cursor:pointer; font-size:0.7rem; margin-right:4px;">🔑 Promover</button>`;
+                    }
+                    if (u.username !== username) { // Impede apagar o próprio admin
+                        actionButtons += `<button onclick="adminAction('delete', ${u.id})" style="background:transparent; border:1px solid var(--accent-red); color:var(--accent-red); border-radius:4px; padding:4px 8px; cursor:pointer; font-size:0.7rem;">🗑️ Deletar</button>`;
+                    }
+
+                    tr.innerHTML = `
+                        <td>${u.username}</td>
+                        <td>${roleBadge}</td>
+                        <td style="text-align:right;">${actionButtons}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--accent-red);padding:20px;">Falha ao carregar usuários do banco de dados.</td></tr>';
+            }
+        }
+        
+        window.adminAction = async function(action, id) {
+            if (action === 'delete' && !confirm('Atenção: Tem certeza? Isso destruirá o usuário e apagará todas as chaves associadas permanentemente do banco.')) return;
+            try {
+                const method = action === 'delete' ? 'DELETE' : 'POST';
+                const endpoint = action === 'delete' ? `/api/admin/users/${id}` : `/api/admin/users/${id}/elevate`;
+                
+                const res = await fetch(endpoint, {
+                    method: method,
+                    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`}
+                });
+                const data = await res.json();
+                const msg = document.getElementById('admin-msg');
+                if (res.ok) {
+                    msg.innerText = data.message;
+                    msg.style.color = 'var(--accent-green)';
+                    loadAdminUsers();
+                } else {
+                    msg.innerText = data.error || 'Acesso Restrito.';
+                    msg.style.color = 'var(--accent-red)';
+                }
+            } catch (e) {
+                document.getElementById('admin-msg').innerText = 'Erro na operação de rede.';
+            }
+        }
+
+        // TELEGRAM PANEL LOGIC
+        async function openTelegram() {
+            document.getElementById('telegram-overlay').style.display = 'flex';
+            document.getElementById('tg-msg').innerText = 'Verificando conexão hospedada no Motor...';
+            document.getElementById('tg-msg').style.color = 'var(--text-dim)';
+            document.getElementById('btn-delete-tg').style.display = 'none';
+
+            try {
+                const res = await fetch('/api/telegram', { headers: {'Authorization': `Bearer ${token}`}});
+                const data = await res.json();
+                if (data.telegram_token) {
+                    document.getElementById('tg-token').value = '*****************'; // Oculta visualmente pro user
+                    document.getElementById('tg-chatid').value = data.telegram_chat_id || '';
+                    document.getElementById('btn-delete-tg').style.display = 'block';
+                    document.getElementById('tg-msg').innerText = 'Seu robô já está engatilhado operando em Background!';
+                    document.getElementById('tg-msg').style.color = 'var(--accent-green)';
+                } else {
+                    document.getElementById('tg-token').value = '';
+                    document.getElementById('tg-chatid').value = '';
+                    document.getElementById('tg-msg').innerText = '';
+                }
+            } catch(e) { document.getElementById('tg-msg').innerText = 'Falha ao parear.'; }
+        }
+
+        function closeTelegram() { document.getElementById('telegram-overlay').style.display = 'none'; }
+
+        async function actionTelegram(actionType) {
+            const tokenInp = document.getElementById('tg-token').value.trim();
+            const chatIdInp = document.getElementById('tg-chatid').value.trim();
+            if (actionType === 'save' && (tokenInp === '' || tokenInp.includes('**'))) return;
+            
+            const msg = document.getElementById('tg-msg');
+            msg.innerText = 'Processando...';
+
+            try {
+                const endpoint = '/api/telegram';
+                const method = actionType === 'delete' ? 'DELETE' : 'POST';
+                const body = actionType === 'delete' ? null : JSON.stringify({ token: tokenInp, chatId: chatIdInp });
+                
+                const res = await fetch(endpoint, {
+                    method,
+                    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+                    body
+                });
+                
+                if (res.ok) {
+                    msg.innerText = actionType === 'delete' ? 'Robô paralisado!' : 'Sincronização Ativa do Robô feita!';
+                    msg.style.color = 'var(--accent-green)';
+                    if (actionType === 'delete') {
+                        document.getElementById('tg-token').value = '';
+                        document.getElementById('tg-chatid').value = '';
+                        document.getElementById('btn-delete-tg').style.display = 'none';
+                    }
+                    setTimeout(closeTelegram, 1500);
+                } else {
+                    msg.innerText = 'Erro ao processar ativação do Robô.';
+                }
+            } catch(e) { msg.innerText = 'Erro interno.'; }
+        }
+
+        document.getElementById('btn-save-tg').addEventListener('click', () => actionTelegram('save'));
+        document.getElementById('btn-delete-tg').addEventListener('click', () => actionTelegram('delete'));
+
+        // BOLLINGER BANDS & TABLE LOGIC
+        function calculateBollingerBands(data, index, period = 20) {
+            if (index + period > data.length) return null;
+            let sum = 0;
+            for (let i = 0; i < period; i++) sum += data[index + i].closePrice;
+            const sma = sum / period;
+            let varianceSum = 0;
+            for (let i = 0; i < period; i++) varianceSum += Math.pow(data[index + i].closePrice - sma, 2);
+            const sd = Math.sqrt(varianceSum / period);
+            return { upper: sma + 2 * sd, lower: sma - 2 * sd, middle: sma };
+        }
+
+        async function fetchBitcoinData() {
+            if (!token) return;
+            try {
+                const response = await fetch('/api/btc-history', { headers: {'Authorization': `Bearer ${token}`} });
+                if (response.status === 401 || response.status === 403) return logout();
+                
+                const json = await response.json();
+                if (json.code === 0 && Array.isArray(json.data)) {
+                    renderTable(json.data);
+                    document.getElementById('last-update-time').innerText = new Date().toLocaleTimeString('pt-BR');
+                } else {
+                    document.getElementById('crypto-table-body').innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--accent-red); padding:40px;">Erro de formato. O banco de dados pode estar reiniciando.</td></tr>';
+                }
+            } catch (e) {
+                document.getElementById('crypto-table-body').innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--accent-red); padding:40px;">Verificando estabilidade do contêiner DB backend...</td></tr>';
+            }
+        }
+
+        function renderTable(dataItems) {
+            const tbody = document.getElementById('crypto-table-body');
+            tbody.innerHTML = '';
+            
+            const sortedData = [...dataItems].reverse();
+            const processedData = sortedData.map(item => {
+                return { 
+                    ts: item.created_at, 
+                    open: Number(item.open), 
+                    closePrice: Number(item.close), 
+                    high: Number(item.high), 
+                    low: Number(item.low), 
+                    volume: Number(item.volume) 
+                };
+            });
+
+            processedData.forEach((item, index) => {
+                if (index < 50) item.bb = calculateBollingerBands(processedData, index, 20);
+                
+                const date = new Date(item.ts);
+                const isUp = item.closePrice >= item.open;
+                const colorClass = isUp ? 'text-green' : 'text-red';
+                const tr = document.createElement('tr');
+                
+                let bbUpperStr = '-', bbMiddleStr = '-', bbLowerStr = '-', tradeActionStr = '-', actionColorClass = 'text-dim';
+                
+                if (item.bb) {
+                    bbUpperStr = `$${item.bb.upper.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    bbMiddleStr = `$${item.bb.middle.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    bbLowerStr = `$${item.bb.lower.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    
+                    if (item.closePrice > item.bb.upper) { tradeActionStr = 'Vender'; actionColorClass = 'text-red'; } 
+                    else if (item.closePrice < item.bb.lower) { tradeActionStr = 'Comprar'; actionColorClass = 'text-green'; } 
+                    else { tradeActionStr = 'Manter'; }
+                }
+
+                tr.innerHTML = `
+                    <td>${date.toLocaleDateString('pt-BR')}<br><span class="time-dim" style="margin-left:0;">${date.toLocaleTimeString('pt-BR')}</span></td>
+                    <td>$${item.open.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td class="${colorClass}">$${item.closePrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td>$${item.high.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td>$${item.low.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td>${item.volume.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}<br><span class="time-dim" style="margin-left:0;">BTC</span></td>
+                    <td class="text-dim">${bbUpperStr}</td>
+                    <td class="text-dim">${bbMiddleStr}</td>
+                    <td class="text-dim">${bbLowerStr}</td>
+                    <td class="${actionColorClass}" style="font-weight: 600;">${tradeActionStr}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // INIT & INTERVALS
+        let intervalId = null;
+        let currentIntervalMs = 5 * 60 * 1000; // Será subscrita
+
+        function setupInterval() {
+            if (intervalId) clearInterval(intervalId);
+            intervalId = setInterval(fetchBitcoinData, currentIntervalMs);
+        }
+
+        // Busca do servidor a velocidade mestre (A que o cérebro usa)
+        async function fetchGlobalInterval() {
+            try {
+                const res = await fetch('/api/settings/interval');
+                const data = await res.json();
+                if (data.minutes) {
+                    document.getElementById('interval-input').value = data.minutes;
+                    currentIntervalMs = data.minutes * 60 * 1000;
+                    setupInterval();
+                }
+            } catch(e) {}
+        }
+
+        // Quando o usuário tenta alterar a velocidade na aba
+        document.getElementById('interval-input').addEventListener('change', async (e) => {
+            let mins = parseFloat(e.target.value);
+            if (isNaN(mins) || mins <= 0) { mins = 5; e.target.value = 5; }
+            
+            try {
+                const res = await fetch('/api/settings/interval', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+                    body: JSON.stringify({ minutes: mins })
+                });
+                
+                if (res.ok) {
+                    currentIntervalMs = mins * 60 * 1000;
+                    setupInterval();
+                    fetchBitcoinData();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || 'Apenas o Administrador Mestre pode alterar a velocidade atômica do Robô Global.');
+                    fetchGlobalInterval(); // Devolve a UI pro tempo real que está rodando
+                }
+            } catch(e) { alert('Erro de conexão ao salvar velocidade no BD.'); }
+        });
+
+        // Configura imediatamente carregando do DB
+        fetchGlobalInterval();
+
+        // Tenta logar automaticamente ao abrir
+        checkAuth();
+    </script>
+</body>
+</html>

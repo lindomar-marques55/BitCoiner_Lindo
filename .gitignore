@@ -1,0 +1,20 @@
+# Dependências
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker & Banco de Dados (NÃO SUBIR DADOS DO POSTGRES)
+pgdata/
+.docker-postgres/
+
+# IDE & Sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Segredos (Caso existam arquivos .env locais)
+.env
+*.key
+*.pem
