@@ -667,7 +667,7 @@
                 }
 
                 tr.innerHTML = `
-                    <td>${date.toLocaleDateString('pt-BR')}<br><span class="time-dim" style="margin-left:0;">${date.toLocaleTimeString('pt-BR')}</span></td>
+                    <td>${date.toLocaleDateString('pt-BR', {timeZone: 'UTC'})}<br><span class="time-dim" style="margin-left:0;">${date.toLocaleTimeString('pt-BR', {timeZone: 'UTC'})}</span></td>
                     <td>$${item.open.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     <td class="${colorClass}">$${item.closePrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     <td>$${item.high.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>

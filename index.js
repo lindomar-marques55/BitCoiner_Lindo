@@ -265,8 +265,23 @@ app.get('/api/telegram', authenticateToken, async (req, res) => {
 app.post('/api/telegram', authenticateToken, async (req, res) => {
     const { token, chatId } = req.body;
     try {
+        // Envia mensagem de validação/confirmação para o Telegram
+        const telegramRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                chat_id: chatId, 
+                text: '✅ *Conexão Estabelecida!*\n\nO seu Cérebro Trader do BitCoiner Lindo agora está conectado e enviará alertas de Compra/Venda diretamente aqui no Telegram.', 
+                parse_mode: 'Markdown'
+            })
+        });
+
+        if (!telegramRes.ok) {
+            return res.status(400).json({error: 'Token ou Chat ID inválidos. O robô não conseguiu enviar a mensagem de teste.'});
+        }
+
         await pool.query('UPDATE users SET telegram_token = $1, telegram_chat_id = $2 WHERE id = $3', [token, chatId, req.user.id]);
-        res.json({ message: 'Conexão Telegram Salva!' });
+        res.json({ message: 'Conexão Telegram Salva e Validada!' });
     } catch(e) { res.status(500).json({error: 'Erro interno ao salvar.'}); }
 });
 
@@ -579,6 +594,42 @@ async function pollTelegramUpdates() {
                                 editarMensagemTg(tgToken, chatId, messageId, `⚙️ Confirmação Recebida! Iniciando engate à bolsa de Wall Street via CoinEx API v2 para ${side}...`);
                                 iniciarFluxoDeTradeCoinEx(chatId, side, tgToken, messageId);
                             }
+                        } else if (update.message && update.message.text === '/status') {
+                            const chatId = update.message.chat.id;
+                            try {
+                                const clientIns = await pool.connect();
+                                const memory = await clientIns.query('SELECT * FROM btc_history ORDER BY timestamp DESC LIMIT 60');
+                                clientIns.release();
+                                if (memory.rows.length >= 20) {
+                                    const dataP = memory.rows.map(r => ({ open: Number(r.open), closePrice: Number(r.close), high: Number(r.high), low: Number(r.low), volume: Number(r.volume), ts: parseInt(r.timestamp, 10) }));
+                                    const bollingerHoje = calcularBandasDeBollingerServidor(dataP, 0, 20);
+                                    if(bollingerHoje) {
+                                        const hj = dataP[0];
+                                        const tsDate = new Date(hj.ts);
+                                        let acaoAgora = 'Estável';
+                                        if (hj.closePrice > bollingerHoje.upper) acaoAgora = 'Vender';
+                                        else if (hj.closePrice < bollingerHoje.lower) acaoAgora = 'Comprar';
+
+                                        const msgStatus = `📊 *Status Atual do Mercado (BTC/USDT)*\n\n` +
+                                            `🕐 *Horário:* ${tsDate.toLocaleDateString('pt-BR', {timeZone:'UTC'})}, ${tsDate.toLocaleTimeString('pt-BR', {timeZone:'UTC'})} (UTC) (Brasília)\n` +
+                                            `📈 *Abertura:* R\\$ ${hj.open.toLocaleString('pt-BR', {minimumFractionDigits: 3, maximumFractionDigits: 3})}\n` +
+                                            `📉 *Fechamento:* R\\$ ${hj.closePrice.toLocaleString('pt-BR', {minimumFractionDigits: 3, maximumFractionDigits: 3})}\n` +
+                                            `🔺 *Máxima:* R\\$ ${hj.high.toLocaleString('pt-BR', {minimumFractionDigits: 3, maximumFractionDigits: 3})}\n` +
+                                            `🔻 *Mínima:* R\\$ ${hj.low.toLocaleString('pt-BR', {minimumFractionDigits: 3, maximumFractionDigits: 3})}\n` +
+                                            `📦 *Volume:* ${hj.volume.toLocaleString('pt-BR', {maximumFractionDigits: 4})} BTC\n\n` +
+                                            `*Indicadores Técnicos (BB):*\n` +
+                                            `🔴 *Sup:* R\\$ ${bollingerHoje.upper.toLocaleString('pt-BR', {minimumFractionDigits: 3, maximumFractionDigits: 3})}\n` +
+                                            `🟡 *Méio:* R\\$ ${bollingerHoje.middle.toLocaleString('pt-BR', {minimumFractionDigits: 3, maximumFractionDigits: 3})}\n` +
+                                            `🟢 *Inf:* R\\$ ${bollingerHoje.lower.toLocaleString('pt-BR', {minimumFractionDigits: 3, maximumFractionDigits: 3})}\n\n` +
+                                            `${acaoAgora}`;
+
+                                        fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+                                            method: 'POST', headers: {'Content-Type': 'application/json'},
+                                            body: JSON.stringify({ chat_id: chatId, text: msgStatus, parse_mode: 'Markdown' })
+                                        }).catch(()=>{});
+                                    }
+                                }
+                            } catch (e) { console.error('Erro /status', e); }
                         }
                     }
                 }
