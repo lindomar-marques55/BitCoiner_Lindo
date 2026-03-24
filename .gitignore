@@ -18,3 +18,10 @@ Thumbs.db
 .env
 *.key
 *.pem
+
+# Scripts de Deoloy e Teste Locais (Contém Senhas/IPs)
+deploy.js
+check.js
+index_base64.txt
+test_coinex_exec.js
+package-lock.json
