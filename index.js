@@ -285,6 +285,49 @@ app.post('/api/telegram', authenticateToken, async (req, res) => {
     } catch(e) { res.status(500).json({error: 'Erro interno ao salvar.'}); }
 });
 
+app.get('/api/previsao', authenticateToken, async (req, res) => {
+    try {
+        const clientIns = await pool.connect();
+        const memory = await clientIns.query('SELECT timestamp, close, volume FROM btc_history ORDER BY timestamp DESC LIMIT 80');
+        clientIns.release();
+        
+        if (memory.rows.length >= 20) {
+            const dataP = memory.rows.map(r => ({ open: 0, closePrice: Number(r.close), high: 0, low: 0, volume: Number(r.volume), ts: parseInt(r.timestamp, 10) }));
+            const validDays = Math.min(60, dataP.length - 19);
+            
+            const processedDays = [];
+            for (let i = 0; i < validDays; i++) {
+                const bb = calcularBandasDeBollingerServidor(dataP, i, 20);
+                const dateStr = new Date(dataP[i].ts).toLocaleDateString('pt-BR', {timeZone:'UTC'});
+                const vol = dataP[i].volume.toFixed(2);
+                const close = dataP[i].closePrice.toFixed(2);
+                let smaStr = bb ? bb.middle.toFixed(2) : '-';
+                processedDays.push(`Dia ${dateStr}: Fechamento=$${close} | Volume=${vol} BTC | SMA(20)=$${smaStr}`);
+            }
+            
+            const rawData = processedDays.reverse().join('\n');
+            const systemPrompt = `Você é um Analista Quantitativo Sênior autônomo. Abaixo está o histórico diário do Bitcoin (BTC/USDT) contendo o Preço de Fechamento, Volume Transacionado e a Banda Central de Bollinger (SMA de 20 períodos).\n\n${rawData}\n\nSua tarefa: Analise a tendência, volatilidade, força compradora (baseada no volume) e a relação entre preço e a média móvel (SMA). Com base nestes padrões matemáticos, preveja EXATAMENTE o preço de fechamento para os PRÓXIMOS 10 DIAS a partir do último dia informado.\n\nVocê DEVE responder APENAS no formato Markdown de uma lista enumerada, do "Dia 1:" ao "Dia 10:", contendo a data prevista na sequência do calendário e o preço de fechamento em dólares. NÃO inclua saudações, introduções ou explicações na resposta. Gere APENAS a lista da previsão e NADA MAIS. Exemplo: "1. 24/03/2026: $ 71,500.00"`;
+            
+            const ollamaRes = await fetch('http://192.168.100.193:11434/api/generate', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: 'llama3.2:3b', prompt: systemPrompt, stream: false })
+            });
+            
+            if (ollamaRes.ok) {
+                const ollamaJson = await ollamaRes.json();
+                res.json({ prediction: ollamaJson.response });
+            } else {
+                res.status(500).json({ error: "Falha na comunicação com o LLM Ollama." });
+            }
+        } else {
+            res.status(400).json({ error: "Histórico INSUFICIENTE no banco de dados." });
+        }
+    } catch (e) {
+        console.error('Erro /api/previsao:', e);
+        res.status(500).json({ error: "Erro interno ao processar a previsão." });
+    }
+});
+
 app.delete('/api/telegram', authenticateToken, async (req, res) => {
     try {
         await pool.query('UPDATE users SET telegram_token = NULL, telegram_chat_id = NULL WHERE id = $1', [req.user.id]);
@@ -630,6 +673,55 @@ async function pollTelegramUpdates() {
                                     }
                                 }
                             } catch (e) { console.error('Erro /status', e); }
+                        } else if (update.message && update.message.text === '/previsao') {
+                            const chatId = update.message.chat.id;
+                            try {
+                                const loadMsgRes = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+                                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({ chat_id: chatId, text: "⏳ *Consultando Oráculo (IA Local)...*\nAnalisando o histórico diário gravado no banco de dados para realizar a previsão preditiva dos próximos 10 dias. Por favor aguarde...", parse_mode: 'Markdown' })
+                                }).then(r=>r.json());
+                                
+                                const sMsgId = loadMsgRes.ok && loadMsgRes.result ? loadMsgRes.result.message_id : null;
+                                const clientIns = await pool.connect();
+                                const memory = await clientIns.query('SELECT timestamp, close, volume FROM btc_history ORDER BY timestamp DESC LIMIT 80');
+                                clientIns.release();
+                                
+                                if (memory.rows.length >= 20) {
+                                    const dataP = memory.rows.map(r => ({ open: 0, closePrice: Number(r.close), high: 0, low: 0, volume: Number(r.volume), ts: parseInt(r.timestamp, 10) }));
+                                    const validDays = Math.min(60, dataP.length - 19);
+                                    
+                                    const processedDays = [];
+                                    for (let i = 0; i < validDays; i++) {
+                                        const bb = calcularBandasDeBollingerServidor(dataP, i, 20);
+                                        const dateStr = new Date(dataP[i].ts).toLocaleDateString('pt-BR', {timeZone:'UTC'});
+                                        const vol = dataP[i].volume.toFixed(2);
+                                        const close = dataP[i].closePrice.toFixed(2);
+                                        let smaStr = bb ? bb.middle.toFixed(2) : '-';
+                                        processedDays.push(`Dia ${dateStr}: Fechamento=$${close} | Volume=${vol} BTC | SMA(20)=$${smaStr}`);
+                                    }
+                                    
+                                    const rawData = processedDays.reverse().join('\n');
+                                    const systemPrompt = `Você é um Analista Quantitativo Sênior autônomo. Abaixo está o histórico diário do Bitcoin (BTC/USDT) contendo o Preço de Fechamento, Volume Transacionado e a Banda Central de Bollinger (SMA de 20 períodos).\n\n${rawData}\n\nSua tarefa: Analise a tendência, volatilidade, força compradora (baseada no volume) e a relação entre preço e a média móvel (SMA). Com base nestes padrões matemáticos, preveja EXATAMENTE o preço de fechamento para os PRÓXIMOS 10 DIAS a partir do último dia informado.\n\nVocê DEVE responder APENAS no formato Markdown de uma lista enumerada, do "Dia 1:" ao "Dia 10:", contendo a data prevista na sequência do calendário e o preço de fechamento em dólares. NÃO inclua saudações, introduções ou explicações na resposta. Gere APENAS a lista da previsão e NADA MAIS. Exemplo: "1. 24/03/2026: $ 71,500.00"`;
+                                    
+                                    const ollamaRes = await fetch('http://192.168.100.193:11434/api/generate', {
+                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ model: 'llama3.2:3b', prompt: systemPrompt, stream: false })
+                                    });
+                                    
+                                    if (ollamaRes.ok) {
+                                        const ollamaJson = await ollamaRes.json();
+                                        const finalMsg = `🔮 *Previsão do Cérebro (llama3.2)*\n_Baseado no rigor matemático dos últimos 60 dias e tendências do mercado._\n\n${ollamaJson.response}\n\n⚠️ *Aviso:* Isso é uma predição IA simulada e não garantia financeira.`;
+                                        if (sMsgId) editarMensagemTg(tgToken, chatId, sMsgId, finalMsg);
+                                        else fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ chat_id: chatId, text: finalMsg, parse_mode: 'Markdown' }) }).catch(()=>{});
+                                    } else {
+                                        if (sMsgId) editarMensagemTg(tgToken, chatId, sMsgId, "❌ Falha no Processamento: O motor Ollama local negou a inferência neural.");
+                                    }
+                                } else {
+                                    if (sMsgId) editarMensagemTg(tgToken, chatId, sMsgId, "❌ Histórico INSUFICIENTE no banco de dados para criar uma matriz preditiva.");
+                                }
+                            } catch (e) {
+                                console.error('Erro previsao:', e);
+                            }
                         }
                     }
                 }

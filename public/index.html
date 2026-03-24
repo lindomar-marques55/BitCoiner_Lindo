@@ -230,6 +230,22 @@
         </div>
     </div>
 
+    <!-- OVERLAY DE PREVISAO IA -->
+    <div id="previsao-overlay" class="overlay" style="display: none;">
+        <div class="modal-box" style="width: 500px; max-width: 95vw;">
+            <h3 style="margin-bottom: 1.5rem;">Cérebro Quantitativo (Ollama)</h3>
+            <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 1rem;">Processamento Neural executado em sua infraestrutura local. Baseado nos 60 dias mais recentes armazenados no DB.</p>
+            
+            <div id="previsao-resultado" style="background: rgba(15,23,42,0.8); border-radius: 8px; border: 1px solid var(--border-color); padding: 15px; margin-bottom: 1.5rem; white-space: pre-wrap; font-family: monospace; min-height: 150px; color: var(--text-main); font-size: 0.9rem;">Pronto para enviar o histórico... Pressione o botão para iniciar.</div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn btn-outline" onclick="closePrevisao()">Fechar</button>
+                <button class="btn" id="btn-request-previsao" style="background: var(--accent-green); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);">🚀 Rodar Simulação</button>
+            </div>
+            <p id="previsao-msg" class="alert"></p>
+        </div>
+    </div>
+
     <!-- PAINEL PRINCIPAL -->
     <div id="app-content">
         <header>
@@ -239,6 +255,7 @@
                 <span id="user-greeting" style="font-size:0.9rem; color: var(--accent-green); margin-left: 20px;"></span>
             </div>
             <div class="controls">
+                <button class="btn" onclick="openPrevisao()" style="padding: 6px 12px; font-size: 0.8rem; background: var(--accent-green); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);">🧠 Oráculo IA</button>
                 <button id="btn-admin-panel" class="btn" onclick="openAdmin()" style="display:none; padding: 6px 12px; font-size: 0.8rem; background: var(--accent-red); box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);">👑 Admin</button>
                 <button class="btn" onclick="openTelegram()" style="padding: 6px 12px; font-size: 0.8rem; background: #0088cc; box-shadow: 0 0 10px rgba(0, 136, 204, 0.4);">💬 Robô Telegram</button>
                 <button class="btn" onclick="openVerify()" style="padding: 6px 12px; font-size: 0.8rem; box-shadow: 0 0 10px var(--primary-glow);">🔑 Chaves API Seguras</button>
@@ -733,6 +750,50 @@
 
         // Tenta logar automaticamente ao abrir
         checkAuth();
+
+        // LOGICA DE PREVISÃO OLLAMA
+        function openPrevisao() {
+            document.getElementById('previsao-overlay').style.display = 'flex';
+            document.getElementById('previsao-msg').innerText = '';
+            document.getElementById('previsao-resultado').innerText = 'Pressione "Rodar Simulação" para solicitar ao Ollama local que calcule a perspectiva de fechamento dos próximos 10 dias com base nos padrões.\n(Pode demorar vários segundos para a rede neural completar a resposta)';
+        }
+        function closePrevisao() {
+            document.getElementById('previsao-overlay').style.display = 'none';
+        }
+
+        document.getElementById('btn-request-previsao').addEventListener('click', async () => {
+            const btn = document.getElementById('btn-request-previsao');
+            const resultBox = document.getElementById('previsao-resultado');
+            const msg = document.getElementById('previsao-msg');
+            
+            btn.disabled = true;
+            btn.innerText = '⏳ Pensando...';
+            msg.innerText = 'Ollama trabalhando no background...';
+            msg.style.color = 'var(--text-dim)';
+            resultBox.innerHTML = '<span class="pulse-dot"></span> <i>Aguarde, extraindo dados físicos e consultando a Rede Neural llama3.2...</i>';
+
+            try {
+                const res = await fetch('/api/previsao', { headers: {'Authorization': `Bearer ${token}`} });
+                const data = await res.json();
+                
+                if (res.ok && data.prediction) {
+                    resultBox.innerText = data.prediction;
+                    msg.innerText = 'Matriz preditiva calculada com sucesso!';
+                    msg.style.color = 'var(--accent-green)';
+                } else {
+                    resultBox.innerText = 'A conexão inferencial foi interrompida.';
+                    msg.innerText = data.error || 'Erro ao comunicar com a IA local.';
+                    msg.style.color = 'var(--accent-red)';
+                }
+            } catch(e) {
+                resultBox.innerText = 'Falha crítica de rede no websocket.';
+                msg.innerText = 'Erro ao contatar API de Previsão.';
+                msg.style.color = 'var(--accent-red)';
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '🚀 Repetir Simulação';
+            }
+        });
     </script>
 </body>
 </html>
