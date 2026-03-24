@@ -3,11 +3,21 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 3000;
 app.use(express.json()); // Parsing JSON body
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public'), {
+    setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        }
+    }
+}));
+app.use(express.urlencoded({ extended: true }));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key';
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || '12345678901234567890123456789012'; // 32 chars
@@ -288,12 +298,12 @@ app.post('/api/telegram', authenticateToken, async (req, res) => {
 app.get('/api/previsao', authenticateToken, async (req, res) => {
     try {
         const clientIns = await pool.connect();
-        const memory = await clientIns.query('SELECT timestamp, close, volume FROM btc_history ORDER BY timestamp DESC LIMIT 80');
+        const memory = await clientIns.query('SELECT timestamp, close, volume FROM btc_history ORDER BY timestamp DESC LIMIT 100');
         clientIns.release();
         
         if (memory.rows.length >= 20) {
             const dataP = memory.rows.map(r => ({ open: 0, closePrice: Number(r.close), high: 0, low: 0, volume: Number(r.volume), ts: parseInt(r.timestamp, 10) }));
-            const validDays = Math.min(60, dataP.length - 19);
+            const validDays = Math.min(80, dataP.length - 19);
             
             const processedDays = [];
             for (let i = 0; i < validDays; i++) {
@@ -310,7 +320,12 @@ app.get('/api/previsao', authenticateToken, async (req, res) => {
             
             const ollamaRes = await fetch('http://192.168.100.193:11434/api/generate', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: 'llama3.2:3b', prompt: systemPrompt, stream: false })
+                body: JSON.stringify({ 
+                    model: 'llama3.2:3b', 
+                    prompt: systemPrompt, 
+                    stream: false,
+                    options: { temperature: 0.1 }
+                })
             });
             
             if (ollamaRes.ok) {
@@ -683,12 +698,12 @@ async function pollTelegramUpdates() {
                                 
                                 const sMsgId = loadMsgRes.ok && loadMsgRes.result ? loadMsgRes.result.message_id : null;
                                 const clientIns = await pool.connect();
-                                const memory = await clientIns.query('SELECT timestamp, close, volume FROM btc_history ORDER BY timestamp DESC LIMIT 80');
+                                const memory = await clientIns.query('SELECT timestamp, close, volume FROM btc_history ORDER BY timestamp DESC LIMIT 100');
                                 clientIns.release();
                                 
                                 if (memory.rows.length >= 20) {
                                     const dataP = memory.rows.map(r => ({ open: 0, closePrice: Number(r.close), high: 0, low: 0, volume: Number(r.volume), ts: parseInt(r.timestamp, 10) }));
-                                    const validDays = Math.min(60, dataP.length - 19);
+                                    const validDays = Math.min(80, dataP.length - 19);
                                     
                                     const processedDays = [];
                                     for (let i = 0; i < validDays; i++) {
@@ -710,7 +725,7 @@ async function pollTelegramUpdates() {
                                     
                                     if (ollamaRes.ok) {
                                         const ollamaJson = await ollamaRes.json();
-                                        const finalMsg = `🔮 *Previsão do Cérebro (llama3.2)*\n_Baseado no rigor matemático dos últimos 60 dias e tendências do mercado._\n\n${ollamaJson.response}\n\n⚠️ *Aviso:* Isso é uma predição IA simulada e não garantia financeira.`;
+                                        const finalMsg = `🔮 *Previsão do Cérebro (llama3.2)*\n_Baseado no rigor matemático dos últimos 80 dias e tendências do mercado._\n\n${ollamaJson.response}\n\n⚠️ *Aviso:* Isso é uma predição IA simulada e não garantia financeira.`;
                                         if (sMsgId) editarMensagemTg(tgToken, chatId, sMsgId, finalMsg);
                                         else fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ chat_id: chatId, text: finalMsg, parse_mode: 'Markdown' }) }).catch(()=>{});
                                     } else {

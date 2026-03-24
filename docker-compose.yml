@@ -12,14 +12,14 @@ services:
       - pgdata:/var/lib/postgresql/data
     container_name: bitcoiner_lindo_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
   app:
     build: .
     restart: always
     container_name: bitcoiner_lindo_app
     ports:
-      - "3000:3000"
+      - "3002:3000"
     environment:
       - DB_USER=user
       - DB_PASSWORD=password

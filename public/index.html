@@ -664,7 +664,7 @@
             });
 
             processedData.forEach((item, index) => {
-                if (index < 50) item.bb = calculateBollingerBands(processedData, index, 20);
+                if (index < 80) item.bb = calculateBollingerBands(processedData, index, 20);
                 
                 const date = new Date(item.ts);
                 const isUp = item.closePrice >= item.open;
