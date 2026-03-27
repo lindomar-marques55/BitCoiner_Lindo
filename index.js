@@ -812,7 +812,7 @@ app.get('/api/btc-history', authenticateToken, async (req, res) => {
           }
       }
 
-      const finalResult = await client.query('SELECT * FROM btc_history ORDER BY timestamp ASC LIMIT 100');
+      const finalResult = await client.query('SELECT * FROM (SELECT * FROM btc_history ORDER BY timestamp DESC LIMIT 100) AS sub ORDER BY timestamp ASC');
       const formattedData = finalResult.rows.map(r => ({
           created_at: parseInt(r.timestamp, 10), open: r.open, close: r.close, high: r.high, low: r.low, volume: r.volume
       }));
